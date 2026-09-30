@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI_TOOLY - Context Extender & Memory Core</title>
+    <meta name="description" content="A comprehensive, single-file AI memory and context management system. Extend your AI's context window by managing, searching, and compiling contextual blocks efficiently.">
+    <!-- SVG Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+    
+    <style>
+        /* === CORE VARIABLES & THEMES === */
+        :root {
+            /* Default Dark Theme */
+            --bg-base: #0f172a;
+            --bg-surface: #1e293b;
+            --bg-glass: rgba(30, 41, 59, 0.65);
+            --border-color: #334155;
+            --border-glass: rgba(255, 255, 255, 0.1);
+            
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #8b5cf6;
+            --accent: #0ea5e9;
+            
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+            
+            --radius-sm: 6px;
+            --radius-md: 12px;
+            --radius-lg: 24px;
+            
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.2), 0 4px 6px -2px rgba(0,0,0,0.1);
+            --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        [data-theme="light"] {
+            --bg-base: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-glass: rgba(255, 255, 255, 0.7);
+            --border-color: #e2e8f0;
+            --border-glass: rgba(0, 0, 0, 0.05);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --secondary: #7c3aed;
+            --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        [data-theme="cyberpunk"] {
+            --bg-base: #0d0221;
+            --bg-surface: #261447;
+            --bg-glass: rgba(38, 20, 71, 0.8);
+            --border-color: #ff007f;
+            --border-glass: rgba(255, 0, 127, 0.3);
+            --text-main: #00ffcc;
+            --text-muted: #f5d300;
+            --primary: #ff007f;
+            --primary-hover: #ff0055;
+            --secondary: #00ffcc;
+            --shadow-glass: 0 0 20px rgba(255, 0, 127, 0.2);
+        }
+
+        [data-theme="emerald"] {
+            --bg-base: #022c22;
+            --bg-surface: #064e3b;
+            --bg-glass: rgba(6, 78, 59, 0.75);
+            --border-color: #059669;
+            --border-glass: rgba(16, 185, 129, 0.2);
+            --text-main: #ecfdf5;
+            --text-muted: #a7f3d0;
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --secondary: #fbbf24;
+            --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        /* === RESET & TYPOGRAPHY === */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            transition: background-color 0.4s ease, color 0.4s ease;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
+            background-attachment: fixed;
+        }
+
+        h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; letter-spacing: -0.025em; }
+        a { color: var(--primary); text-decoration: none; transition: color 0.2s; }
+        a:hover { color: var(--primary-hover); }
+        button { font-family: inherit; cursor: pointer; border: none; outline: none; }
+        input, textarea, select { font-family: inherit; }
+
+        /* === LAYOUT === */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 2rem;
+            gap: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-glass);
+            position: sticky;
+            top: 1rem;
+            z-index: 100;
+        }
+
+        .logo { display: flex; align-items: center; gap: 0.75rem; font-size: 1.5rem; font-weight: 800; }
+        .logo svg { width: 32px; height: 32px; fill: currentColor; }
+        
+        .header-controls { display: flex; gap: 1rem; align-items: center; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+            flex: 1;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .app-container { padding: 1rem; }
+            header { flex-direction: column; gap: 1rem; text-align: center; }
+        }
+
+        /* === COMPONENTS === */
+        .panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .glass-panel {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-glass);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            background: var(--bg-surface);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn:hover { background: var(--border-color); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        
+        .btn-primary { background: var(--primary); color: white; border-color: transparent; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        
+        .btn-danger { background: var(--danger); color: white; border-color: transparent; }
+        .btn-danger:hover { background: #dc2626; }
+
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        
+        .input, .textarea {
+            width: 100%;
+            background: var(--bg-base);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input:focus, .textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+        
+        .textarea { min-height: 150px; resize: vertical; font-family: var(--font-mono); font-size: 0.9rem; }
+
+        /* === MEMORY BLOCKS === */
+        .memory-list { display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; max-height: calc(100vh - 250px); padding-right: 0.5rem; }
+        .memory-list::-webkit-scrollbar { width: 6px; }
+        .memory-list::-webkit-scrollbar-track { background: transparent; }
+        .memory-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        
+        .memory-item {
+            background: var(--bg-base);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .memory-item:hover { border-color: var(--primary); transform: translateX(4px); }
+        .memory-item.selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: rgba(59, 130, 246, 0.05); }
+        
+        .memory-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .memory-title { font-weight: 600; font-size: 1.1rem; }
+        .memory-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.5rem; align-items: center; }
+        
+        .badge {
+            background: var(--border-color);
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .memory-preview {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-family: var(--font-mono);
+        }
+
+        .memory-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        /* === COMPILER VIEW === */
+        .compiler-stats {
+            display: flex;
+            justify-content: space-between;
+            background: var(--bg-base);
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+        .stat-box { display: flex; flex-direction: column; gap: 0.25rem; }
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+        .stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; }
+
+        .progress-bar { width: 100%; height: 8px; background: var(--bg-base); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-fill { height: 100%; background: var(--primary); transition: width 0.3s ease, background-color 0.3s; }
+        .progress-fill.warning { background: var(--warning); }
+        .progress-fill.danger { background: var(--danger); }
+
+        .compiler-output {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        #compiled-text {
+            flex: 1;
+            min-height: 300px;
+            background: var(--bg-base);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            overflow-y: auto;
+        }
+
+        /* === MODALS & TOASTS === */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 2rem;
+            width: 100%; max-width: 600px;
+            box-shadow: var(--shadow-lg);
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            display: flex; flex-direction: column; gap: 1.5rem;
+        }
+        .modal-overlay.active .modal { transform: translateY(0); }
+
+        .toast-container { position: fixed; bottom: 2rem; right: 2rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 9999; }
+        .toast {
+            background: var(--bg-surface); border: 1px solid var(--border-color); border-left: 4px solid var(--primary);
+            padding: 1rem; border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+            display: flex; align-items: center; gap: 0.75rem;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.danger { border-left-color: var(--danger); }
+        
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; } }
+
+        /* UTIL */
+        .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        .empty-state svg { width: 48px; height: 48px; opacity: 0.5; }
+        .flex-row { display: flex; gap: 1rem; align-items: center; }
+        .ml-auto { margin-left: auto; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header>
+            <div class="logo">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                AI_TOOLY
+            </div>
+            <div class="header-controls">
+                <select id="theme-select" class="input" style="width: auto; padding: 0.25rem 0.5rem;">
+                    <option value="dark">Dark Theme</option>
+                    <option value="light">Light Theme</option>
+                    <option value="cyberpunk">Cyberpunk</option>
+                    <option value="emerald">Emerald</option>
+                </select>
+                <button class="btn" onclick="exportData()">💾 Export</button>
+                <label class="btn" style="margin:0;">
+                    📂 Import
+                    <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
+                </label>
+                <button class="btn btn-primary" onclick="openModal()">➕ New Memory</button>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-grid">
+            
+            <!-- LEFT PANEL: Memory Bank -->
+            <aside class="panel">
+                <div class="flex-row">
+                    <h3>🧠 Memory Bank</h3>
+                    <span class="badge ml-auto" id="total-memories">0</span>
+                </div>
+                
+                <input type="text" id="search-input" class="input" placeholder="🔍 Search memories..." oninput="renderMemories()">
+                
+                <div class="memory-list" id="memory-list">
+                    <!-- Dynamic Content -->
+                </div>
+            </aside>
+
+            <!-- RIGHT PANEL: Context Compiler -->
+            <main class="glass-panel" style="display:flex; flex-direction:column; gap:1.5rem;">
+                <h3>⚡ Context Compiler</h3>
+                <p style="color:var(--text-muted); font-size:0.9rem;">Select memory blocks from the bank to compile them into a unified context payload. Token counts are heuristics (~4 chars/token).</p>
+                
+                <div class="compiler-stats">
+                    <div class="stat-box">
+                        <span class="stat-label">Selected Blocks</span>
+                        <span class="stat-value" id="stat-selected">0</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Est. Tokens</span>
+                        <span class="stat-value" id="stat-tokens">0</span>
+                    </div>
+                    <div class="stat-box" style="align-items: flex-end;">
+                        <span class="stat-label">Context Limit Usage</span>
+                        <span class="stat-value" style="font-size: 1rem;"><span id="stat-percent">0</span>% of 128k</span>
+                        <div class="progress-bar" style="width: 150px;">
+                            <div class="progress-fill" id="progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="compiler-output">
+                    <div class="flex-row">
+                        <h4>Compiled Payload</h4>
+                        <button class="btn btn-primary ml-auto" onclick="copyCompiled()">📋 Copy to Clipboard</button>
+                    </div>
+                    <textarea id="compiled-text" class="textarea" readonly placeholder="Compiled context will appear here..."></textarea>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL: Add/Edit Memory -->
+    <div class="modal-overlay" id="memory-modal">
+        <div class="modal">
+            <h3 id="modal-title">Create Memory Block</h3>
+            <input type="hidden" id="memory-id">
+            
+            <div class="form-group">
+                <label>Title / Identifier</label>
+                <input type="text" id="memory-title-input" class="input" placeholder="e.g., Global Coding Rules">
+            </div>
+            
+            <div class="form-group">
+                <label>Tags (comma separated)</label>
+                <input type="text" id="memory-tags-input" class="input" placeholder="e.g., rules, backend, python">
+            </div>
+            
+            <div class="form-group">
+                <label>Content Payload</label>
+                <textarea id="memory-content-input" class="textarea" placeholder="Paste the exact text, code, or context here..."></textarea>
+            </div>
+            
+            <div class="flex-row" style="justify-content: flex-end; margin-top: 1rem;">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveMemory()">💾 Save Memory</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- APP LOGIC -->
+    <script>
+        // === STATE MANAGEMENT ===
+        const STATE = {
+            memories: [],
+            selectedIds: new Set(),
+            theme: localStorage.getItem('theme') || 'dark',
+            contextLimit: 128000
+        };
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMemories();
+            applyTheme(STATE.theme);
+            document.getElementById('theme-select').value = STATE.theme;
+            
+            // Theme listener
+            document.getElementById('theme-select').addEventListener('change', (e) => {
+                applyTheme(e.target.value);
+            });
+        });
+
+        // === CORE FUNCTIONS ===
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            STATE.theme = theme;
+        }
+
+        function generateId() {
+            return 'mem_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        }
+
+        function estimateTokens(text) {
+            // Rough heuristic: 1 token ~ 4 English characters
+            return Math.ceil(text.length / 4);
+        }
+
+        function loadMemories() {
+            const stored = localStorage.getItem('aitooly_memories');
+            if (stored) {
+                try {
+                    STATE.memories = JSON.parse(stored);
+                } catch(e) {
+                    showToast('Failed to parse local storage data.', 'danger');
+                    STATE.memories = [];
+                }
+            }
+            renderMemories();
+            updateCompiler();
+        }
+
+        function persistMemories() {
+            localStorage.setItem('aitooly_memories', JSON.stringify(STATE.memories));
+            renderMemories();
+            updateCompiler();
+        }
+
+        // === UI RENDERING ===
+        function renderMemories() {
+            const listEl = document.getElementById('memory-list');
+            const search = document.getElementById('search-input').value.toLowerCase();
+            
+            const filtered = STATE.memories.filter(m => 
+                m.title.toLowerCase().includes(search) || 
+                m.content.toLowerCase().includes(search) ||
+                m.tags.join(' ').toLowerCase().includes(search)
+            );
+
+            document.getElementById('total-memories').textContent = STATE.memories.length;
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        <p>${STATE.memories.length === 0 ? "Memory bank is empty. Create your first block." : "No memories match your search."}</p>
+                    </div>`;
+                return;
+            }
+
+            listEl.innerHTML = filtered.map(mem => {
+                const isSelected = STATE.selectedIds.has(mem.id);
+                const tokens = estimateTokens(mem.content);
+                const tagsHtml = mem.tags.map(t => `<span class="badge">${t}</span>`).join('');
+                
+                return `
+                    <div class="memory-item ${isSelected ? 'selected' : ''}" onclick="toggleSelect('${mem.id}')">
+                        <div class="memory-header">
+                            <span class="memory-title">${mem.title}</span>
+                            <div class="flex-row" style="gap:0.25rem;">
+                                ${tagsHtml}
+                            </div>
+                        </div>
+                        <div class="memory-meta">
+                            <span>⏱ ${new Date(mem.timestamp).toLocaleDateString()}</span>
+                            <span>🪙 ~${tokens.toLocaleString()} tokens</span>
+                        </div>
+                        <div class="memory-preview">${mem.content}</div>
+                        <div class="memory-actions">
+                            <button class="btn" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="event.stopPropagation(); editMemory('${mem.id}')">✏️ Edit</button>
+                            <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="event.stopPropagation(); deleteMemory('${mem.id}')">🗑️ Del</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateCompiler() {
+            const selectedMems = STATE.memories.filter(m => STATE.selectedIds.has(m.id));
+            
+            // Generate Payload
+            let payload = "";
+            let totalTokens = 0;
+
+            selectedMems.forEach(mem => {
+                payload += `<memory_block title="${mem.title}" tags="${mem.tags.join(',')}">\n`;
+                payload += mem.content + "\n";
+                payload += `</memory_block>\n\n`;
+                totalTokens += estimateTokens(mem.content);
+            });
+
+            // Update UI
+            document.getElementById('stat-selected').textContent = selectedMems.length;
+            document.getElementById('stat-tokens').textContent = totalTokens.toLocaleString();
+            document.getElementById('compiled-text').value = payload.trim();
+
+            // Progress bar
+            const percent = Math.min((totalTokens / STATE.contextLimit) * 100, 100).toFixed(1);
+            document.getElementById('stat-percent').textContent = percent;
+            
+            const pBar = document.getElementById('progress-bar-fill');
+            pBar.style.width = percent + '%';
+            
+            pBar.className = 'progress-fill';
+            if (percent > 75) pBar.classList.add('warning');
+            if (percent > 90) pBar.classList.add('danger');
+        }
+
+        // === ACTIONS ===
+        function toggleSelect(id) {
+            if (STATE.selectedIds.has(id)) {
+                STATE.selectedIds.delete(id);
+            } else {
+                STATE.selectedIds.add(id);
+            }
+            renderMemories();
+            updateCompiler();
+        }
+
+        function openModal(id = null) {
+            const modal = document.getElementById('memory-modal');
+            const titleInput = document.getElementById('memory-title-input');
+            const tagsInput = document.getElementById('memory-tags-input');
+            const contentInput = document.getElementById('memory-content-input');
+            const idInput = document.getElementById('memory-id');
+            const modalTitle = document.getElementById('modal-title');
+
+            if (id) {
+                const mem = STATE.memories.find(m => m.id === id);
+                if(mem) {
+                    modalTitle.textContent = "Edit Memory Block";
+                    idInput.value = mem.id;
+                    titleInput.value = mem.title;
+                    tagsInput.value = mem.tags.join(', ');
+                    contentInput.value = mem.content;
+                }
+            } else {
+                modalTitle.textContent = "Create Memory Block";
+                idInput.value = "";
+                titleInput.value = "";
+                tagsInput.value = "";
+                contentInput.value = "";
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('memory-modal').classList.remove('active');
+        }
+
+        function saveMemory() {
+            const id = document.getElementById('memory-id').value;
+            const title = document.getElementById('memory-title-input').value.trim();
+            const tagsStr = document.getElementById('memory-tags-input').value;
+            const content = document.getElementById('memory-content-input').value.trim();
+
+            if (!title || !content) {
+                showToast("Title and Content are required.", "danger");
+                return;
+            }
+
+            const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+
+            if (id) {
+                // Update
+                const idx = STATE.memories.findIndex(m => m.id === id);
+                if(idx > -1) {
+                    STATE.memories[idx] = { ...STATE.memories[idx], title, tags, content, timestamp: Date.now() };
+                    showToast("Memory updated successfully.", "success");
+                }
+            } else {
+                // Create
+                const newMem = {
+                    id: generateId(),
+                    title,
+                    tags,
+                    content,
+                    timestamp: Date.now()
+                };
+                STATE.memories.unshift(newMem);
+                showToast("Memory created successfully.", "success");
+            }
+
+            persistMemories();
+            closeModal();
+        }
+
+        function deleteMemory(id) {
+            if(confirm("Are you sure you want to delete this memory block?")) {
+                STATE.memories = STATE.memories.filter(m => m.id !== id);
+                STATE.selectedIds.delete(id);
+                persistMemories();
+                showToast("Memory deleted.", "success");
+            }
+        }
+
+        function editMemory(id) {
+            openModal(id);
+        }
+
+        function copyCompiled() {
+            const text = document.getElementById('compiled-text').value;
+            if(!text) {
+                showToast("Nothing to copy!", "danger");
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Compiled context copied to clipboard!", "success");
+            }).catch(err => {
+                showToast("Failed to copy text.", "danger");
+            });
+        }
+
+        // === IMPORT / EXPORT ===
+        function exportData() {
+            const dataStr = JSON.stringify(STATE.memories, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `aitooly_export_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Exported memory data successfully.", "success");
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        // Merge or replace? Let's just merge and deduplicate by ID for safety.
+                        const currentMap = new Map(STATE.memories.map(m => [m.id, m]));
+                        imported.forEach(m => {
+                            if(m.id && m.title && m.content) {
+                                currentMap.set(m.id, m);
+                            }
+                        });
+                        STATE.memories = Array.from(currentMap.values());
+                        STATE.memories.sort((a,b) => b.timestamp - a.timestamp);
+                        persistMemories();
+                        showToast(`Imported ${imported.length} memories successfully.`, "success");
+                    } else {
+                        throw new Error("Invalid format");
+                    }
+                } catch(err) {
+                    showToast("Failed to import. Invalid JSON format.", "danger");
+                }
+                event.target.value = ''; // reset
+            };
+            reader.readAsText(file);
+        }
+
+        // === UTILS ===
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span>${type === 'success' ? '✅' : '⚠️'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            
+            // Remove after animation completes (3s total)
+            setTimeout(() => {
+                if(container.contains(toast)) {
+                    container.removeChild(toast);
+                }
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
